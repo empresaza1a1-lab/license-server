@@ -154,16 +154,17 @@ app.post('/api/validate', (req, res) => {
     // 7. Generar licencia firmada
     const licenseString = generarLicenciaFirmada(licencia);
     
-    // 8. Encriptar datos
-    const empresaJSON = JSON.stringify(licencia.empresa);
-    console.log(`🔐 Encriptando datos para: ${licencia.empresa.razonSocial}`);
-    console.log(`   JSON length: ${empresaJSON.length}`);
-    
-    const key = Buffer.from(HMAC_SECRET.padEnd(32, '0').slice(0, 32));
-    const nonce = Buffer.alloc(12, 0);
-    
-    console.log(`   Key (hex): ${key.toString('hex')}`);
-    console.log(`   Nonce (hex): ${nonce.toString('hex')}`);
+   // 8. Encriptar datos
+const empresaJSON = JSON.stringify(licencia.empresa);
+console.log(`🔐 Encriptando datos para: ${licencia.empresa.razonSocial}`);
+console.log(`   JSON length: ${empresaJSON.length}`);
+
+const key = Buffer.from(HMAC_SECRET.padEnd(32, '0').slice(0, 32));
+const nonce = Buffer.alloc(12, 0);
+
+console.log(`   Key (hex): ${key.toString('hex')}`);
+console.log(`   Nonce (hex): ${nonce.toString('hex')}`);
+
     
     const cipher = crypto.createCipheriv('aes-256-gcm', key, nonce);
     
