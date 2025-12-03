@@ -8,11 +8,16 @@
     "dev": "nodemon server.js",
     "generate-keys": "node generate-keys.js"
   },
-  "keywords": ["license", "validation", "security"],
+  "keywords": [
+    "license",
+    "validation",
+    "security"
+  ],
   "author": "Tu Nombre",
   "license": "MIT",
   "dependencies": {
-    "express": "^4.18.2"
+    "express": "^4.18.2",
+    "pg": "^8.16.3"
   },
   "devDependencies": {
     "nodemon": "^3.0.1"
