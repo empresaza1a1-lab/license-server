@@ -286,16 +286,16 @@ app.get('/api/licenses', async (req, res) => {
     }
     
     try {
-        const result = await pool.query(
+       const result = await pool.query(
 `SELECT 
-    hardware_id AS "hardwareID",
-    empresa_data->>'razonSocial' as empresa, 
-    activa,
-    expiration_date AS "expirationDate",
-    features,
-    created_at AS "createdAt"
- FROM licencias
- ORDER BY created_at DESC`
+    hardware_id,             -- Devolver como snake_case
+    empresa_data->>'razonSocial' as empresa, 
+    activa,
+    expiration_date,         -- Devolver como snake_case
+    features,
+    created_at               -- Devolver como snake_case
+ FROM licencias
+ ORDER BY created_at DESC`
 );
         
         res.json({ 
