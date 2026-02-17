@@ -12,7 +12,7 @@ app.use(express.json());
 // ============================================
 const PRIVATE_KEY = process.env.PRIVATE_KEY || fs.readFileSync('private_key.pem', 'utf8');
 const PUBLIC_KEY = process.env.PUBLIC_KEY || fs.readFileSync('public_key.pem', 'utf8');
-const HMAC_SECRET = process.env.HMAC_SECRET || '1e50454dbd76bf5602668874ef6f8d2712a87f3375cf81e834b9e09ed1901f28';
+const HMAC_SECRET = process.env.HMAC_SECRET || '2333339999000009999';
 
 // ============================================
 // CONFIGURACIÓN DE POSTGRESQL
@@ -35,11 +35,23 @@ async function initDatabase() {
                 features TEXT[] DEFAULT ARRAY['export', 'import', 'reports'],
                 activa BOOLEAN DEFAULT TRUE,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                license_number VARCHAR(25)
             );
 
             CREATE INDEX IF NOT EXISTS idx_hardware_id ON licencias(hardware_id);
             CREATE INDEX IF NOT EXISTS idx_activa ON licencias(activa);
+            
+            -- Agregar columna si no existe (para bases de datos existentes)
+            DO $$ 
+            BEGIN
+                IF NOT EXISTS (
+                    SELECT 1 FROM information_schema.columns 
+                    WHERE table_name = 'licencias' AND column_name = 'license_number'
+                ) THEN
+                    ALTER TABLE licencias ADD COLUMN license_number VARCHAR(25);
+                END IF;
+            END $$;
         `);
         
         console.log('✅ Base de datos inicializada correctamente');
@@ -211,8 +223,9 @@ app.post('/api/validate', async (req, res) => {
     }
 });
 
+// ✅ MODIFICADO: ahora recibe y guarda license_number
 app.post('/api/register', async (req, res) => {
-    const { api_key, device_id, empresa, expirationDate, features } = req.body;
+    const { api_key, device_id, empresa, expirationDate, features, license_number } = req.body;
     
     if (api_key !== process.env.ADMIN_API_KEY) {
         return res.status(401).json({ error: 'API key inválida' });
@@ -220,30 +233,33 @@ app.post('/api/register', async (req, res) => {
     
     try {
         await pool.query(
-            `INSERT INTO licencias (hardware_id, empresa_data, expiration_date, features, activa)
-             VALUES ($1, $2, $3, $4, $5)
+            `INSERT INTO licencias (hardware_id, empresa_data, expiration_date, features, activa, license_number)
+             VALUES ($1, $2, $3, $4, $5, $6)
              ON CONFLICT (hardware_id) 
              DO UPDATE SET 
                 empresa_data = $2,
                 expiration_date = $3,
                 features = $4,
                 activa = $5,
+                license_number = $6,
                 updated_at = CURRENT_TIMESTAMP`,
             [
                 device_id,
                 JSON.stringify(empresa),
                 expirationDate || null,
                 features || ['export', 'import', 'reports'],
-                true
+                true,
+                license_number  // ← NUEVO: guardar el número que envió el cliente
             ]
         );
         
-        console.log(`✅ Licencia registrada/actualizada: ${device_id}`);
+        console.log(`✅ Licencia registrada/actualizada: ${device_id} - ${license_number}`);
         
         res.json({
             success: true,
             message: 'Licencia registrada exitosamente',
-            device_id: device_id
+            device_id: device_id,
+            license_number: license_number  // ← devolver confirmación
         });
         
     } catch (error) {
@@ -278,6 +294,7 @@ app.post('/api/revoke', async (req, res) => {
     }
 });
 
+// ✅ MODIFICADO: ahora incluye license_number en la respuesta
 app.get('/api/licenses', async (req, res) => {
     const { api_key } = req.query;
     
@@ -288,12 +305,13 @@ app.get('/api/licenses', async (req, res) => {
     try {
        const result = await pool.query(
 `SELECT 
-    hardware_id,             -- Devolver como snake_case
+    hardware_id,
     empresa_data->>'razonSocial' as empresa, 
     activa,
-    expiration_date,         -- Devolver como snake_case
+    expiration_date,
     features,
-    created_at               -- Devolver como snake_case
+    created_at,
+    license_number
  FROM licencias
  ORDER BY created_at DESC`
 );
