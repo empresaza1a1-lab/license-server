@@ -106,38 +106,20 @@ app.get('/public-key', (req, res) => {
 });
 
 app.post('/api/validate', async (req, res) => {
-    const { device_id, app_version, timestamp, signature } = req.body;
+    const { device_id, app_version } = req.body;
     
     console.log(`📥 Request de validación para: ${device_id}`);
     
     // 1. Validar campos requeridos
-    if (!device_id || !timestamp || !signature) {
+    if (!device_id) {
         return res.status(400).json({
             valid: false,
-            error: 'Faltan campos requeridos'
-        });
-    }
-    
-    // 2. Validar timestamp
-    if (!validarTimestamp(timestamp)) {
-        return res.status(401).json({
-            valid: false,
-            error: 'Timestamp inválido o expirado'
-        });
-    }
-    
-    // 3. Validar firma HMAC
-    const expectedSignature = generarFirmaHMAC(device_id, timestamp);
-    if (signature !== expectedSignature) {
-        console.log(`⚠️ Firma inválida para device: ${device_id}`);
-        return res.status(401).json({
-            valid: false,
-            error: 'Firma de autenticación inválida'
+            error: 'device_id requerido'
         });
     }
     
     try {
-        // 4. Buscar licencia en PostgreSQL
+        // 2. Buscar licencia en PostgreSQL
         const result = await pool.query(
             'SELECT * FROM licencias WHERE hardware_id = $1',
             [device_id]
@@ -153,7 +135,7 @@ app.post('/api/validate', async (req, res) => {
         
         const licencia = result.rows[0];
         
-        // 5. Verificar que esté activa
+        // 3. Verificar que esté activa
         if (!licencia.activa) {
             console.log(`❌ Licencia desactivada para device: ${device_id}`);
             return res.status(403).json({
@@ -162,7 +144,7 @@ app.post('/api/validate', async (req, res) => {
             });
         }
         
-        // 6. Verificar expiración
+        // 4. Verificar expiración
         if (licencia.expiration_date) {
             const expDate = new Date(licencia.expiration_date);
             if (expDate < new Date()) {
@@ -175,10 +157,10 @@ app.post('/api/validate', async (req, res) => {
             }
         }
         
-        // 7. Generar licencia firmada
+        // 5. Generar licencia firmada (HMAC se calcula aquí)
         const licenseString = generarLicenciaFirmada(licencia);
         
-        // 8. Encriptar datos
+        // 6. Encriptar datos (usando HMAC_SECRET del servidor)
         const empresaJSON = JSON.stringify(licencia.empresa_data);
         
         const key = Buffer.from(HMAC_SECRET.padEnd(32, '0').slice(0, 32));
@@ -210,7 +192,6 @@ app.post('/api/validate', async (req, res) => {
         });
     }
 });
-
 app.post('/api/register', async (req, res) => {
     const { api_key, device_id, empresa, expirationDate, features } = req.body;
     
