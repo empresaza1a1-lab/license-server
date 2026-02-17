@@ -12,7 +12,7 @@ app.use(express.json());
 // ============================================
 const PRIVATE_KEY = process.env.PRIVATE_KEY || fs.readFileSync('private_key.pem', 'utf8');
 const PUBLIC_KEY = process.env.PUBLIC_KEY || fs.readFileSync('public_key.pem', 'utf8');
-const HMAC_SECRET = process.env.HMAC_SECRET || '2333339999000009999';
+const HMAC_SECRET = process.env.HMAC_SECRET || '1e50454dbd76bf5602668874ef6f8d2712a87f3375cf81e834b9e09ed1901f28';
 
 // ============================================
 // CONFIGURACIÓN DE POSTGRESQL
