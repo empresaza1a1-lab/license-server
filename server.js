@@ -223,7 +223,7 @@ app.post('/api/validate', async (req, res) => {
     }
 });
 
-// ✅ MODIFICADO: ahora recibe y guarda license_number
+// ✅ REEMPLAZA TU POST /api/register CON ESTE BLOQUE:
 app.post('/api/register', async (req, res) => {
     const { api_key, device_id, empresa, expirationDate, features, license_number } = req.body;
     
@@ -232,40 +232,41 @@ app.post('/api/register', async (req, res) => {
     }
     
     try {
-       // Reemplaza el bloque pool.query dentro de /api/register con esto:
-        console.log('--- INTENTO DE REGISTRO ---');
-        console.log('Device:', device_id);
-        console.log('License Number:', license_number); // Si esto sale undefined aquí, el problema es el body-parser
-        console.log('---------------------------');
+        // Log para ver qué llega exactamente al servidor de Railway
+        console.log(`DEBUG: Recibido para ${device_id} -> License: ${license_number}`);
+
+        const query = `
+            INSERT INTO licencias (hardware_id, empresa_data, expiration_date, features, activa, license_number)
+            VALUES ($1, $2, $3, $4, $5, $6)
+            ON CONFLICT (hardware_id) 
+            DO UPDATE SET 
+                empresa_data = EXCLUDED.empresa_data,
+                expiration_date = EXCLUDED.expiration_date,
+                features = EXCLUDED.features,
+                activa = EXCLUDED.activa,
+                license_number = EXCLUDED.license_number,
+                updated_at = CURRENT_TIMESTAMP
+            RETURNING *;`; // Agregamos RETURNING para ver qué quedó grabado
+
+        const values = [
+            device_id,
+            JSON.stringify(empresa),
+            expirationDate || null,
+            features || ['export', 'import', 'reports'],
+            true,
+            license_number || null
+        ];
+
+        const result = await pool.query(query, values);
         
-    await pool.query(
-    `INSERT INTO licencias (hardware_id, empresa_data, expiration_date, features, activa, license_number)
-     VALUES ($1, $2, $3, $4, $5, $6)
-     ON CONFLICT (hardware_id) 
-     DO UPDATE SET 
-        empresa_data = EXCLUDED.empresa_data,
-        expiration_date = EXCLUDED.expiration_date,
-        features = EXCLUDED.features,
-        activa = EXCLUDED.activa,
-        license_number = EXCLUDED.license_number,
-        updated_at = CURRENT_TIMESTAMP`,
-    [
-        device_id,
-        JSON.stringify(empresa),
-        expirationDate || null,
-        features || ['export', 'import', 'reports'],
-        true,
-        license_number || null // Aseguramos que si viene vacío sea null y no undefined
-    ]
-);
-        
-        console.log(`✅ Licencia registrada/actualizada: ${device_id} - ${license_number}`);
+        // Verificamos en el log de Railway qué se guardó realmente
+        console.log("✅ DB Registro guardado:", result.rows[0]);
         
         res.json({
             success: true,
             message: 'Licencia registrada exitosamente',
             device_id: device_id,
-            license_number: license_number  // ← devolver confirmación
+            license_number: result.rows[0].license_number // Devolvemos lo que la DB dice que guardó
         });
         
     } catch (error) {
@@ -273,7 +274,6 @@ app.post('/api/register', async (req, res) => {
         res.status(500).json({ error: 'Error interno del servidor' });
     }
 });
-
 app.post('/api/revoke', async (req, res) => {
     const { api_key, device_id } = req.body;
     
