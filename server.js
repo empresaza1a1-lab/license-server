@@ -232,26 +232,27 @@ app.post('/api/register', async (req, res) => {
     }
     
     try {
-        await pool.query(
-            `INSERT INTO licencias (hardware_id, empresa_data, expiration_date, features, activa, license_number)
-             VALUES ($1, $2, $3, $4, $5, $6)
-             ON CONFLICT (hardware_id) 
-             DO UPDATE SET 
-                empresa_data = $2,
-                expiration_date = $3,
-                features = $4,
-                activa = $5,
-                license_number = $6,
-                updated_at = CURRENT_TIMESTAMP`,
-            [
-                device_id,
-                JSON.stringify(empresa),
-                expirationDate || null,
-                features || ['export', 'import', 'reports'],
-                true,
-                license_number  // ← NUEVO: guardar el número que envió el cliente
-            ]
-        );
+       // Reemplaza el bloque pool.query dentro de /api/register con esto:
+    await pool.query(
+    `INSERT INTO licencias (hardware_id, empresa_data, expiration_date, features, activa, license_number)
+     VALUES ($1, $2, $3, $4, $5, $6)
+     ON CONFLICT (hardware_id) 
+     DO UPDATE SET 
+        empresa_data = EXCLUDED.empresa_data,
+        expiration_date = EXCLUDED.expiration_date,
+        features = EXCLUDED.features,
+        activa = EXCLUDED.activa,
+        license_number = EXCLUDED.license_number,
+        updated_at = CURRENT_TIMESTAMP`,
+    [
+        device_id,
+        JSON.stringify(empresa),
+        expirationDate || null,
+        features || ['export', 'import', 'reports'],
+        true,
+        license_number || null // Aseguramos que si viene vacío sea null y no undefined
+    ]
+);
         
         console.log(`✅ Licencia registrada/actualizada: ${device_id} - ${license_number}`);
         
