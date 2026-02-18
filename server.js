@@ -35,23 +35,11 @@ async function initDatabase() {
                 features TEXT[] DEFAULT ARRAY['export', 'import', 'reports'],
                 activa BOOLEAN DEFAULT TRUE,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                license_number VARCHAR(25)
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
 
             CREATE INDEX IF NOT EXISTS idx_hardware_id ON licencias(hardware_id);
             CREATE INDEX IF NOT EXISTS idx_activa ON licencias(activa);
-            
-            -- Agregar columna si no existe (para bases de datos existentes)
-            DO $$ 
-            BEGIN
-                IF NOT EXISTS (
-                    SELECT 1 FROM information_schema.columns 
-                    WHERE table_name = 'licencias' AND column_name = 'license_number'
-                ) THEN
-                    ALTER TABLE licencias ADD COLUMN license_number VARCHAR(25);
-                END IF;
-            END $$;
         `);
         
         console.log('✅ Base de datos inicializada correctamente');
@@ -223,50 +211,39 @@ app.post('/api/validate', async (req, res) => {
     }
 });
 
-// ✅ REEMPLAZA TU POST /api/register CON ESTE BLOQUE:
 app.post('/api/register', async (req, res) => {
-    const { api_key, device_id, empresa, expirationDate, features, license_number } = req.body;
+    const { api_key, device_id, empresa, expirationDate, features } = req.body;
     
     if (api_key !== process.env.ADMIN_API_KEY) {
         return res.status(401).json({ error: 'API key inválida' });
     }
     
     try {
-        // Log para ver qué llega exactamente al servidor de Railway
-        console.log(`DEBUG: Recibido para ${device_id} -> License: ${license_number}`);
-
-        const query = `
-            INSERT INTO licencias (hardware_id, empresa_data, expiration_date, features, activa, license_number)
-            VALUES ($1, $2, $3, $4, $5, $6)
-            ON CONFLICT (hardware_id) 
-            DO UPDATE SET 
-                empresa_data = EXCLUDED.empresa_data,
-                expiration_date = EXCLUDED.expiration_date,
-                features = EXCLUDED.features,
-                activa = EXCLUDED.activa,
-                license_number = EXCLUDED.license_number,
-                updated_at = CURRENT_TIMESTAMP
-            RETURNING *;`; // Agregamos RETURNING para ver qué quedó grabado
-
-        const values = [
-            device_id,
-            JSON.stringify(empresa),
-            expirationDate || null,
-            features || ['export', 'import', 'reports'],
-            true,
-            license_number || null
-        ];
-
-        const result = await pool.query(query, values);
+        await pool.query(
+            `INSERT INTO licencias (hardware_id, empresa_data, expiration_date, features, activa)
+             VALUES ($1, $2, $3, $4, $5)
+             ON CONFLICT (hardware_id) 
+             DO UPDATE SET 
+                empresa_data = $2,
+                expiration_date = $3,
+                features = $4,
+                activa = $5,
+                updated_at = CURRENT_TIMESTAMP`,
+            [
+                device_id,
+                JSON.stringify(empresa),
+                expirationDate || null,
+                features || ['export', 'import', 'reports'],
+                true
+            ]
+        );
         
-        // Verificamos en el log de Railway qué se guardó realmente
-        console.log("✅ DB Registro guardado:", result.rows[0]);
+        console.log(`✅ Licencia registrada/actualizada: ${device_id}`);
         
         res.json({
             success: true,
             message: 'Licencia registrada exitosamente',
-            device_id: device_id,
-            license_number: result.rows[0].license_number // Devolvemos lo que la DB dice que guardó
+            device_id: device_id
         });
         
     } catch (error) {
@@ -274,6 +251,7 @@ app.post('/api/register', async (req, res) => {
         res.status(500).json({ error: 'Error interno del servidor' });
     }
 });
+
 app.post('/api/revoke', async (req, res) => {
     const { api_key, device_id } = req.body;
     
@@ -300,7 +278,6 @@ app.post('/api/revoke', async (req, res) => {
     }
 });
 
-// ✅ MODIFICADO: ahora incluye license_number en la respuesta
 app.get('/api/licenses', async (req, res) => {
     const { api_key } = req.query;
     
@@ -311,13 +288,12 @@ app.get('/api/licenses', async (req, res) => {
     try {
        const result = await pool.query(
 `SELECT 
-    hardware_id,
+    hardware_id,             -- Devolver como snake_case
     empresa_data->>'razonSocial' as empresa, 
     activa,
-    expiration_date,
+    expiration_date,         -- Devolver como snake_case
     features,
-    created_at,
-    license_number
+    created_at               -- Devolver como snake_case
  FROM licencias
  ORDER BY created_at DESC`
 );
