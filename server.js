@@ -233,6 +233,11 @@ app.post('/api/register', async (req, res) => {
     
     try {
        // Reemplaza el bloque pool.query dentro de /api/register con esto:
+        console.log('--- INTENTO DE REGISTRO ---');
+        console.log('Device:', device_id);
+        console.log('License Number:', license_number); // Si esto sale undefined aquí, el problema es el body-parser
+        console.log('---------------------------');
+        
     await pool.query(
     `INSERT INTO licencias (hardware_id, empresa_data, expiration_date, features, activa, license_number)
      VALUES ($1, $2, $3, $4, $5, $6)
