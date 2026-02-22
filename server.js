@@ -181,16 +181,27 @@ app.post('/api/validate', async (req, res) => {
         // 8. Encriptar datos
         const empresaJSON = JSON.stringify(licencia.empresa_data);
         
-        const key = Buffer.from(HMAC_SECRET.padEnd(32, '0').slice(0, 32));
-        const nonce = Buffer.alloc(12, 0);
-        
-        const cipher = crypto.createCipheriv('aes-256-gcm', key, nonce);
-        
+        // Generar AES key efímera y nonce aleatorio por request
+        const aesKey = crypto.randomBytes(32);
+        const nonce = crypto.randomBytes(12);
+
+        const cipher = crypto.createCipheriv('aes-256-gcm', aesKey, nonce);
+
         let encrypted = cipher.update(empresaJSON, 'utf8');
         encrypted = Buffer.concat([encrypted, cipher.final()]);
-        
+
         const authTag = cipher.getAuthTag();
         const combined = Buffer.concat([encrypted, authTag]);
+
+        // Encriptar la AES key con la clave privada RSA (RSA-OAEP SHA-256)
+        const encryptedKey = crypto.privateEncrypt(
+    {
+        key: PRIVATE_KEY,
+        padding: crypto.constants.RSA_PKCS1_OAEP_PADDING,
+        oaepHash: 'sha256'
+    },
+    aesKey
+);
         
         console.log(`✅ Licencia validada para device: ${device_id} - ${licencia.empresa_data.razonSocial}`);
         
