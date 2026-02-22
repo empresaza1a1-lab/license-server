@@ -73,16 +73,17 @@ function generarLicenciaFirmada(licenciaData) {
 }
 
 function firmarRespuesta(licenseString, encryptedData, expiresAt, features) {
-    // String canónico: campos fijos en orden definido, separados por |
     const expiresStr = expiresAt ? new Date(expiresAt).toISOString() : '';
     const featuresStr = features ? features.join(',') : '';
     const canonical = `${licenseString}|${encryptedData}|${expiresStr}|${featuresStr}`;
+    
+    console.log('🔐 Canonical string length:', canonical.length);
+    console.log('🔐 Canonical preview:', canonical.substring(0, 100));
     
     const sign = crypto.createSign('RSA-SHA256');
     sign.update(canonical);
     return sign.sign(PRIVATE_KEY, 'base64');
 }
-
 function encriptarDatos(empresaJSON) {
     const key = Buffer.from(AES_SECRET.padEnd(32, '0').slice(0, 32));
     const nonce = Buffer.alloc(12, 0);
