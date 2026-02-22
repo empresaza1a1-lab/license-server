@@ -206,12 +206,14 @@ app.post('/api/validate', async (req, res) => {
         console.log(`✅ Licencia validada para device: ${device_id} - ${licencia.empresa_data.razonSocial}`);
         
         res.json({
-            valid: true,
-            licenseString: licenseString,
-            encryptedData: combined.toString('base64'),
-            expiresAt: licencia.expiration_date,
-            features: licencia.features
-        });
+        valid: true,
+        licenseString: licenseString,
+        encryptedData: combined.toString('base64'),
+        encryptedKey: encryptedKey.toString('base64'),  // NUEVO
+        nonce: nonce.toString('base64'),                 // NUEVO
+        expiresAt: licencia.expiration_date,
+        features: licencia.features
+    });
         
     } catch (error) {
         console.error('❌ Error en validación:', error);
