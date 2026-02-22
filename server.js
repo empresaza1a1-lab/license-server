@@ -72,10 +72,14 @@ function generarLicenciaFirmada(licenciaData) {
     return `${dataToSign}|${signature}`;
 }
 
-function firmarRespuesta(payload) {
-    const data = JSON.stringify(payload, Object.keys(payload).sort());
+function firmarRespuesta(licenseString, encryptedData, expiresAt, features) {
+    // String canónico: campos fijos en orden definido, separados por |
+    const expiresStr = expiresAt ? new Date(expiresAt).toISOString() : '';
+    const featuresStr = features ? features.join(',') : '';
+    const canonical = `${licenseString}|${encryptedData}|${expiresStr}|${featuresStr}`;
+    
     const sign = crypto.createSign('RSA-SHA256');
-    sign.update(data);
+    sign.update(canonical);
     return sign.sign(PRIVATE_KEY, 'base64');
 }
 
@@ -180,7 +184,12 @@ app.post('/api/validate', async (req, res) => {
             features: licencia.features
         };
 
-        const responseSignature = firmarRespuesta(payload);
+        const responseSignature = firmarRespuesta(
+            licenseString,
+            encryptedData,
+            licencia.expiration_date,
+            licencia.features
+        );
 
         console.log(`✅ Licencia validada para device: ${device_id} - ${licencia.empresa_data.razonSocial}`);
 
